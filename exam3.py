@@ -8,7 +8,7 @@
 import streamlit as st
 
 # ── 1. 수업 제목 ──
-st.title("예시 수업 제목")  # ← 교과별 제목으로 자유롭게 수정하세요.
+st.title("지구과학 형성평가")  # ← 교과별 제목으로 자유롭게 수정하세요.
 
 # ── 2~4. 입력 + 제출을 form 안에 묶기 ──
 with st.form("submit_form"):
@@ -192,5 +192,6 @@ if st.session_state.gpt_feedbacks:
             st.success(f"**문항 {i}** : {fb}")
         else:
             st.info(f"**문항 {i}** : {fb}")
+
 
     st.success("모든 피드백이 생성되었습니다. (DB 저장용 데이터 준비 완료)")
