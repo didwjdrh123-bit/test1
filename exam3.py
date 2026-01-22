@@ -7,8 +7,18 @@
 
 import streamlit as st
 
+# ----Supabase 코드 추가----------------------------
+from supabase import create_client, Client
+
+@st.cache_resource
+def get_supabase_client() -> Client:
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]  # 서버 전용(절대 노출 금지)
+    return create_client(url, key)
+# ----Supabase 코드 추가----------------------------
+
 # ── 1. 수업 제목 ──
-st.title("지구과학 형성평가")  # ← 교과별 제목으로 자유롭게 수정하세요.
+st.title("예시 수업 제목")  # ← 교과별 제목으로 자유롭게 수정하세요.
 
 # ── 2~4. 입력 + 제출을 form 안에 묶기 ──
 with st.form("submit_form"):
@@ -72,6 +82,29 @@ if "gpt_feedbacks" not in st.session_state:
     st.session_state.gpt_feedbacks = None
 if "gpt_payload" not in st.session_state:
     st.session_state.gpt_payload = None
+
+# ----Supabase 코드 추가----------------------------
+def save_to_supabase(payload: dict):
+    supabase = get_supabase_client()
+
+    row = {
+        "student_id": payload["student_id"],
+        "answer_1": payload["answers"]["Q1"],
+        "answer_2": payload["answers"]["Q2"],
+        "answer_3": payload["answers"]["Q3"],
+        "feedback_1": payload["feedbacks"]["Q1"],
+        "feedback_2": payload["feedbacks"]["Q2"],
+        "feedback_3": payload["feedbacks"]["Q3"],
+        "guideline_1": payload["guidelines"]["Q1"],
+        "guideline_2": payload["guidelines"]["Q2"],
+        "guideline_3": payload["guidelines"]["Q3"],
+        "model": payload["model"],
+        # created_at은 DB default(now()) 사용
+    }
+
+    return supabase.table("student_submissions").insert(row).execute()
+
+# ----Supabase 코드 추가----------------------------
 
 # ── 1. 문항별 채점 기준(교사가 자유롭게 수정) ──
 GRADING_GUIDELINES = {
@@ -180,6 +213,22 @@ if st.button("GPT 피드백 확인", disabled=not st.session_state.submitted_ok)
         "model": "gpt-5-mini",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+# ----Supabase 코드 추가----------------------------
+    # --- Supabase 저장: payload 생성 직후 실행 ---
+    try:
+        res = save_to_supabase(st.session_state.gpt_payload)
+        st.success("Supabase 저장 완료")
+
+        # 디버깅용: 저장된 데이터가 있으면 화면에 일부 표시
+        # (원하면 이후 삭제해도 됨)
+        st.write("insert result:", res.data)
+
+    except KeyError as e:
+        st.error(f"secrets 누락: {e} (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 확인)")
+    except Exception as e:
+        st.error(f"Supabase 저장 오류: {e}")
+
+# ----Supabase 코드 추가----------------------------
 
 # ── 4. 결과 표시(저장된 값이 있으면 항상 표시) ──
 if st.session_state.gpt_feedbacks:
@@ -192,6 +241,5 @@ if st.session_state.gpt_feedbacks:
             st.success(f"**문항 {i}** : {fb}")
         else:
             st.info(f"**문항 {i}** : {fb}")
-
 
     st.success("모든 피드백이 생성되었습니다. (DB 저장용 데이터 준비 완료)")
